@@ -11,7 +11,7 @@ const port = process.env.PORT || 4000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: 'http://localhost:3000', // Replace with your front-end URL
+  origin: 'https://avs-services.vercel.app', // Replace with your front-end URL
   methods: 'GET,POST',
   credentials: true,
 }));
