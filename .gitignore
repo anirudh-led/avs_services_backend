@@ -1,0 +1,45 @@
+# Node modules
+/node_modules
+
+# Frontend (React) build files
+/frontend/node_modules
+
+# Backend (Express) build files (if applicable, e.g., for TypeScript or compiled code)
+/backend/build
+/backend/node_modules
+
+# SQLite database file
+*.sqlite
+*.sqlite3
+*.db
+
+# OS-specific files
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variable files
+.env
+
+# Yarn lock (if using Yarn)
+yarn.lock
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Temporary or editor backup files
+*~
+*.swp
+*.swo
+
+# npm global packages
+.npm
+
+# Coverage directory for testing (e.g., Jest)
+/coverage
+
+# npm package lock file (if not using it)
+package-lock.json
