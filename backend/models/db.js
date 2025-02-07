@@ -1,106 +1,91 @@
-const sqlite3 = require('sqlite3').verbose();
+const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-// Path to SQLite database file
-const dbPath = process.env.DATABASE_URL;
+// Create a Supabase client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Connect to SQLite database
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error connecting to SQLite:', err.message);
-  } else {
-    console.log(`Connected to SQLite database at ${dbPath}`);
-  }
-});
-
-// Create table for users if it doesn't exist
-const createUserTable = () => {
-  const query = `
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      salary REAL DEFAULT 0,
-      balance REAL DEFAULT 0
-    );
-  `;
-  
-  db.run(query, (err) => {
-    if (err) {
-      console.error('Error creating user table:', err.message);
-    } else {
-      console.log('User table is ready');
-    }
-  });
-};
 
 // Function to register a new user
-const registerUser = (username, password, salary = 0, balance = 0, callback) => {
-  bcrypt.hash(password, 10, (err, hashedPassword) => {
-    if (err) return callback(err);
-
-    const query = 'INSERT INTO users (username, password, salary, balance) VALUES (?, ?, ?, ?)';
-    const values = [username, hashedPassword, salary, balance];
-
-    db.run(query, values, function (err) {
-      if (err) return callback(err);
-      callback(null, this.lastID); // Return the ID of the new user
-    });
-  });
+const registerUser = async (username, password, salary = 0, balance = 0) => {
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const { data, error } = await supabase.from('users').insert([
+            { username, password: hashedPassword, salary, balance }
+        ]).select('id').single();
+        if (error) throw error;
+        return data.id;
+    } catch (err) {
+        throw err;
+    }
 };
 
+const getUserById = async (userId) => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single(); // Ensures only one user is returned
+
+    if (error) {
+        console.error('Error fetching user:', error);
+        throw error;
+    }
+
+    return data;
+};
+
+
 // Authenticate user (login)
-const authenticateUser = (username, password, callback) => {
-  const query = 'SELECT * FROM users WHERE username = ?';
-  const values = [username];
+const authenticateUser = async (username, password) => {
+    try {
+        const { data, error } = await supabase.from('users').select('*').eq('username', username).single();
+        if (error || !data) return null;
+        const isMatch = await bcrypt.compare(password, data.password);
+        return isMatch ? data : null;
+    } catch (err) {
+        throw err;
+    }
+};
 
-  db.get(query, values, (err, user) => {
-    if (err) return callback(err);
 
-    if (!user) return callback(null, false); // User not found
-
-    bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err) return callback(err);
-      if (isMatch) {
-        callback(null, user); // Password matches
-      } else {
-        callback(null, false); // Password incorrect
-      }
-    });
-  });
+const deleteUser = async (userId) => {
+    try {
+        const { error } = await supabase.from('users').delete().eq('id', userId);
+        if (error) throw error;
+        return { success: true };
+    } catch (err) {
+        throw err;
+    }
 };
 
 // Get all workers
-const getWorkers = (callback) => {
-  const query = 'SELECT * FROM users';
-
-  db.all(query, [], (err, rows) => {
-    if (err) return callback(err);
-    callback(null, rows); // Return the rows (workers)
-  });
+const getWorkers = async () => {
+    try {
+        const { data, error } = await supabase.from('users').select('*');
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        throw err;
+    }
 };
 
 // Pay a worker by updating their balance
-const payWorker = (workerId, amount, callback) => {
-  const query = 'UPDATE users SET balance = balance + ? WHERE id = ?';
-  const values = [amount, workerId];
-
-  db.run(query, values, function (err) {
-    if (err) return callback(err);
-    if (this.changes === 0) {
-      return callback(new Error('Worker not found or payment failed.'));
-    }
-    callback(null, { success: true });
-  });
+const payWorker = async (workerId, amount) => {
+    const { data, error } = await supabase.rpc('pay_worker', { worker_id: workerId, amount });
+    if (error) throw error;
+    return { success: true };
 };
+
+
+
 
 // Export the database functions
 module.exports = {
-  db,
-  createUserTable,
-  registerUser,
-  authenticateUser,
-  getWorkers,
-  payWorker,
+    registerUser,
+    authenticateUser,
+    getWorkers,
+    payWorker,
+    deleteUser,
+    getUserById
 };
